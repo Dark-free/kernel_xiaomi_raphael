@@ -62,7 +62,7 @@ static void thermal_throttle_worker(struct work_struct *work)
 	struct thermal_drv *t = container_of(to_delayed_work(work), typeof(*t),
 					     throttle_work);
 	struct thermal_zone *new_zone, *old_zone;
-	int temp = 0, temp_cpus_avg = 0, temp_batt = 0;
+	int temp = 0;
 	s64 temp_total = 0, temp_avg = 0;
 	short i = 0;
 
@@ -74,24 +74,7 @@ static void thermal_throttle_worker(struct work_struct *work)
 		temp_total += temp;
 	}
 
-	temp_cpus_avg = temp_total / NR_CPUS;
-
-	/* Now let's also get battery temperature */
-	thermal_zone_get_temp(thermal_zone_get_zone_by_name("battery"), &temp_batt);
-
-	/* HQ autism coming up */
-	if (temp_batt <= 30000)
-		temp_avg = (temp_cpus_avg * 2 + temp_batt * 3) / 5;
-	else if (temp_batt > 30000 && temp_batt <= 38000)
-		temp_avg = (temp_cpus_avg * 3 + temp_batt * 2) / 5;
-	else if (temp_batt > 38000 && temp_batt <= 43000)
-		temp_avg = (temp_cpus_avg * 4 + temp_batt) / 5;
-	else if (temp_batt > 43000)
-		temp_avg = (temp_cpus_avg * 5 + temp_batt) / 6;
-
-	/* Emergency case */
-	if (temp_cpus_avg > 86000)
-		temp_avg = (temp_cpus_avg * 6 + temp_batt) / 7;
+	temp_avg = temp_total / NR_CPUS;
 
 	old_zone = t->curr_zone;
 	new_zone = NULL;
@@ -105,7 +88,7 @@ static void thermal_throttle_worker(struct work_struct *work)
 
 	/* Update thermal zone if it changed */
 	if (new_zone != old_zone) {
-		pr_info("temp: %i\n", temp_avg);
+		pr_debug("temp_avg: %i\n", temp_avg);
 		t->curr_zone = new_zone;
 		update_online_cpu_policy();
 	}
